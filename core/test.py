@@ -91,7 +91,7 @@ def test_process(mode, model, cur_global_step, data_loader, config):
     loader_iter = iter(data_loader)
 
     # save info given by the network
-    network_infor_list = ["geo_losses", "cla_losses", "l2_losses", 'precisions', 'recalls', 'f_scores']
+    network_infor_list = ["geo_losses", "cla_losses", "l2_losses", 'precisions', 'recalls', 'f_scores', 'GPR_reg_loss', 'GPR_self_reg_loss','GPR_quary_reg_loss']
     network_info = {info:[] for info in network_infor_list}
 
     results, pool_arg = [], []
@@ -99,10 +99,12 @@ def test_process(mode, model, cur_global_step, data_loader, config):
     with torch.no_grad(): 
         for test_data in loader_iter:
             test_data = tocuda(test_data)
-            res_logits, res_e_hat = model(test_data)
+            res_logits, res_e_hat, res_motion_hat = model(test_data,test_data['xs_reg'][:,:,:,0:2])
             y_hat, e_hat = res_logits[-1], res_e_hat[-1]
             loss, geo_loss, cla_loss, l2_loss, prec, rec = match_loss.run(cur_global_step, test_data, y_hat, e_hat)
-            info = [geo_loss, cla_loss, l2_loss, prec, rec, 2*prec*rec/(prec+rec+1e-15)]
+            loss_reg, loss_reg_self, loss_reg_quary = match_loss.GPR_reg_loss(cur_global_step, test_data, res_motion_hat)
+            loss += loss_reg
+            info = [geo_loss, cla_loss, l2_loss, prec, rec, 2*prec*rec/(prec+rec+1e-15), loss_reg, loss_reg_self, loss_reg_quary]
             for info_idx, value in enumerate(info):
                 network_info[network_infor_list[info_idx]].append(value)
 
@@ -145,8 +147,8 @@ def test_process(mode, model, cur_global_step, data_loader, config):
     tag = "ours" if not config.use_ransac else "ours_ransac"
     ret_val = dump_res(measure_list, config.res_path, eval_res, tag)
     return [ret_val, np.mean(np.asarray(network_info['geo_losses'])), np.mean(np.asarray(network_info['cla_losses'])), \
-        np.mean(np.asarray(network_info['l2_losses'])), np.mean(np.asarray(network_info['precisions'])), \
-        np.mean(np.asarray(network_info['recalls'])), np.mean(np.asarray(network_info['f_scores']))]
+        np.mean(np.asarray(network_info['l2_losses'])), np.mean(np.asarray(network_info['GPR_reg_loss'])), np.mean(np.asarray(network_info['GPR_self_reg_loss'])), np.mean(np.asarray(network_info['GPR_quary_reg_loss'])), \
+        np.mean(np.asarray(network_info['precisions'])), np.mean(np.asarray(network_info['recalls'])), np.mean(np.asarray(network_info['f_scores']))]
 
 
 def test(data_loader, model, config):

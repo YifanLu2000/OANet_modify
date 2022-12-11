@@ -11,7 +11,8 @@ os.environ['CUDA_VISIBLE_DEVICES'] = config.gpu_id
 import torch.utils.data
 import sys
 from data import collate_fn, CorrespondencesDataset
-from oan import OANet as Model
+# from oan import OANet as Model
+from deep_VFC_v5 import deep_VFC as Model
 from train import train
 from test import test
 
@@ -23,8 +24,8 @@ def create_log_dir(config):
     if not os.path.isdir(config.log_base):
         os.makedirs(config.log_base)
     if config.log_suffix == "":
-        suffix = "-".join(sys.argv)
-    result_path = config.log_base+'/'+suffix
+        config.log_suffix = "-".join(sys.argv)
+    result_path = config.log_base+'/'+config.log_suffix
     if not os.path.isdir(result_path):
         os.makedirs(result_path)
     if not os.path.isdir(result_path+'/train'):
@@ -32,7 +33,7 @@ def create_log_dir(config):
     if not os.path.isdir(result_path+'/valid'):
         os.makedirs(result_path+'/valid')
     if not os.path.isdir(result_path+'/test'):
-        os.makedirs(result_path+'/test')
+        os.makedirs(result_path+'/test')  
     if os.path.exists(result_path+'/config.th'):
         print('warning: will overwrite config file')
     torch.save(config, result_path+'/config.th')
@@ -49,13 +50,14 @@ def main(config):
     if config.run_mode == "train":
         create_log_dir(config)
 
-        train_dataset = CorrespondencesDataset(config.data_tr, config)
-
+        train_dataset = CorrespondencesDataset(config.data_tr, config.data_tr_reg, config)
+        # print('here1')
+        # train_sampler = torch.utils.data.sampler()
         train_loader = torch.utils.data.DataLoader(
                 train_dataset, batch_size=config.train_batch_size, shuffle=True,
                 num_workers=16, pin_memory=False, collate_fn=collate_fn)
 
-        valid_dataset = CorrespondencesDataset(config.data_va, config)
+        valid_dataset = CorrespondencesDataset(config.data_va, config.data_va_reg, config)
         valid_loader = torch.utils.data.DataLoader(
                 valid_dataset, batch_size=config.train_batch_size, shuffle=False,
                 num_workers=8, pin_memory=False, collate_fn=collate_fn)

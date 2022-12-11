@@ -40,8 +40,8 @@ def collate_fn(batch):
                 data['sides'].append(sample['side'])
         if sample['xs_reg'].shape[1] > cur_num_kp_reg:
             sub_idx_reg = np.random.choice(sample['xs_reg'].shape[1], cur_num_kp_reg, replace=False)
-            data['xs_reg'].append(sample['xs_reg'][:,sub_idx,:])
-            data['ys_reg'].append(sample['ys_reg'][sub_idx,:])
+            data['xs_reg'].append(sample['xs_reg'][:,sub_idx_reg,:])
+            data['ys_reg'].append(sample['ys_reg'][sub_idx_reg,:])
         else:
             data['xs_reg'].append(sample['xs_reg'])
             data['ys_reg'].append(sample['ys_reg'])
@@ -90,6 +90,7 @@ class CorrespondencesDataset(data.Dataset):
     def __getitem__(self, index):
         if self.data is None:
             self.data = h5py.File(self.filename,'r')
+            # print('here')
         if self.data_reg is None:
             self.data_reg = h5py.File(self.filename_reg,'r')
 

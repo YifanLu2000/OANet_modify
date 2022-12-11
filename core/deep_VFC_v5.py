@@ -194,7 +194,6 @@ class deep_VFC(nn.Module):
     def __init__(self, config, use_gpu=True):
         nn.Module.__init__(self)
         self.layer_num = config.layer_num
-        self.GPR_num = config.GPR_num
         self.grid_center = GridPosition(config.grid_num, use_gpu=use_gpu)
         self.pos_embed = PositionEncoder(config.net_channels)
         self.grid_pos_embed = PositionEncoder(config.net_channels)
@@ -207,11 +206,14 @@ class deep_VFC(nn.Module):
         self.kernel_pos_embed = PositionEncoder(config.net_channels)
         self.Cos_kernel = CosKernel(config)
         self.error_embed = PositionEncoder(config.net_channels)
-        self.topK = config.topK
         self.deep_kernel = AttentionPropagation(config.net_channels, config.head)
     
     def forward(self, data, quary_x):
+        assert quary_x.dim() == 4 and quary_x.shape[1] == 1
+        # quary_x: B1NC -> BCN
+        quary_x = quary_x.transpose(1,3).squeeze(-1)
         assert data['xs'].dim() == 4 and data['xs'].shape[1] == 1
+        
         batch_size, num_pts = data['xs'].shape[0], data['xs'].shape[2]
         # B1NC -> BCN
         input = data['xs'].transpose(1,3).squeeze(3)

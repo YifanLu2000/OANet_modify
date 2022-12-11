@@ -23,14 +23,27 @@ net_arg.add_argument(
     "--net_depth", type=int, default=12, help=""
     "number of layers. Default: 12")
 net_arg.add_argument(
-    "--clusters", type=int, default=500, help=""
-    "cluster number in OANet. Default: 500")
+    "--layer_num", type=int, default=6, help=""
+    "number of layers. Default: 12")
 net_arg.add_argument(
     "--iter_num", type=int, default=1, help=""
     "iteration number in the iterative network. Default: 1")
 net_arg.add_argument(
     "--net_channels", type=int, default=128, help=""
     "number of channels in a layer. Default: 128")
+net_arg.add_argument(
+    "--grid_num", type=int, default=16, help=""
+    "number of grids in one domention. Default: 16")
+net_arg.add_argument(
+    "--head", type=int, default=4, help=""
+    "number of layers. Default: 12")
+net_arg.add_argument(
+    "--head_num", type=int, default=4, help=""
+    "number of layers. Default: 12")
+net_arg.add_argument(
+    "--learn_temperature", type=bool, default=True, help=""
+    "number of layers. Default: 12")
+
 net_arg.add_argument(
     "--use_fundamental", type=str2bool, default=False, help=""
     "train fundamental matrix estimation. Default: False")
@@ -51,13 +64,19 @@ net_arg.add_argument(
 # Data
 data_arg = add_argument_group("Data")
 data_arg.add_argument(
-    "--data_tr", type=str, default='../data_dump/yfcc-sift-2000-train.hdf5', help=""
+    "--data_tr", type=str, default='/data/lyf/OANet/data_dump/yfcc-sift-2000-train.hdf5', help=""
     "name of the dataset for train")
 data_arg.add_argument(
-    "--data_va", type=str, default='../data_dump/yfcc-sift-2000-val.hdf5', help=""
+    "--data_tr_reg", type=str, default='/data/lyf/OANet/data_dump/yfcc-sift-4000-train.hdf5', help=""
+    "name of the dataset for train")
+data_arg.add_argument(
+    "--data_va", type=str, default='/data/lyf/OANet/data_dump/yfcc-sift-2000-val.hdf5', help=""
     "name of the dataset for valid")
 data_arg.add_argument(
-    "--data_te", type=str, default='../data_dump/yfcc-sift-2000-test.hdf5', help=""
+    "--data_va_reg", type=str, default='/data/lyf/OANet/data_dump/yfcc-sift-4000-val.hdf5', help=""
+    "name of the dataset for valid")
+data_arg.add_argument(
+    "--data_te", type=str, default='/data/lyf/OANet/data_dump/yfcc-sift-2000-test.hdf5', help=""
     "name of the unseen dataset for test")
 
 
@@ -99,6 +118,9 @@ loss_arg.add_argument(
     "--loss_essential_init_iter", type=int, default=20000, help=""
     "initial iterations to run only the classification loss")
 loss_arg.add_argument(
+    "--loss_essential_end_iter", type=int, default=100000, help=""
+    "ending iterations of essential regression loss")
+loss_arg.add_argument(
     "--geo_loss_margin", type=float, default=0.1, help=""
     "clamping margin in geometry loss")
 
@@ -109,13 +131,13 @@ train_arg.add_argument(
     "--run_mode", type=str, default="train", help=""
     "run_mode")
 train_arg.add_argument(
-    "--train_lr", type=float, default=1e-3, help=""
+    "--train_lr", type=float, default=1e-4, help=""
     "learning rate")
 train_arg.add_argument(
     "--train_batch_size", type=int, default=32, help=""
     "batch size")
 train_arg.add_argument(
-    "--gpu_id", type=str, default='0', help='id(s) for CUDA_VISIBLE_DEVICES')
+    "--gpu_id", type=str, default='2', help='id(s) for CUDA_VISIBLE_DEVICES')
 train_arg.add_argument(
     "--num_processor", type=int, default=8, help='numbers of used cpu')
 train_arg.add_argument(
@@ -128,10 +150,10 @@ train_arg.add_argument(
     "--log_suffix", type=str, default="", help=""
     "suffix of log dir")
 train_arg.add_argument(
-    "--val_intv", type=int, default=10000, help=""
+    "--val_intv", type=int, default=5000, help=""
     "validation interval")
 train_arg.add_argument(
-    "--save_intv", type=int, default=1000, help=""
+    "--save_intv", type=int, default=5000, help=""
     "summary interval")
 
 # -----------------------------------------------------------------------------
