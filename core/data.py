@@ -10,12 +10,15 @@ from utils import np_skew_symmetric
 
 def collate_fn(batch):
     batch_size = len(batch)
+    # print(batch)
     numkps = np.array([sample['xs'].shape[1] for sample in batch])
+    numkps_reg = np.array([sample['xs_reg'].shape[1] for sample in batch])
     cur_num_kp = int(numkps.min())
+    cur_num_kp_reg = int(numkps_reg.min())
 
     data = {}
     data['K1s'], data['K2s'], data['Rs'], \
-        data['ts'], data['xs'], data['ys'], data['T1s'], data['T2s'], data['virtPts'], data['sides']  = [], [], [], [], [], [], [], [], [], []
+        data['ts'], data['xs'], data['ys'], data['xs_reg'], data['ys_reg'], data['T1s'], data['T2s'], data['virtPts'], data['sides']  = [], [], [], [], [], [], [], [], [], [], [], []
     for sample in batch:
         data['K1s'].append(sample['K1'])
         data['K2s'].append(sample['K2'])
@@ -35,9 +38,16 @@ def collate_fn(batch):
             data['ys'].append(sample['ys'])
             if len(sample['side']) != 0:
                 data['sides'].append(sample['side'])
+        if sample['xs_reg'].shape[1] > cur_num_kp_reg:
+            sub_idx_reg = np.random.choice(sample['xs_reg'].shape[1], cur_num_kp_reg, replace=False)
+            data['xs_reg'].append(sample['xs_reg'][:,sub_idx,:])
+            data['ys_reg'].append(sample['ys_reg'][sub_idx,:])
+        else:
+            data['xs_reg'].append(sample['xs_reg'])
+            data['ys_reg'].append(sample['ys_reg'])
 
 
-    for key in ['K1s', 'K2s', 'Rs', 'ts', 'xs', 'ys', 'T1s', 'T2s','virtPts']:
+    for key in ['K1s', 'K2s', 'Rs', 'ts', 'xs', 'ys', 'xs_reg', 'ys_reg', 'T1s', 'T2s','virtPts']:
         data[key] = torch.from_numpy(np.stack(data[key])).float()
     if data['sides'] != []:
         data['sides'] = torch.from_numpy(np.stack(data['sides'])).float()
@@ -46,10 +56,12 @@ def collate_fn(batch):
 
 
 class CorrespondencesDataset(data.Dataset):
-    def __init__(self, filename, config):
+    def __init__(self, filename, filename_reg, config):
         self.config = config
         self.filename = filename
+        self.filename_reg = filename_reg
         self.data = None
+        self.data_reg = None
 
     def correctMatches(self, e_gt):
         step = 0.1
@@ -78,11 +90,19 @@ class CorrespondencesDataset(data.Dataset):
     def __getitem__(self, index):
         if self.data is None:
             self.data = h5py.File(self.filename,'r')
+        if self.data_reg is None:
+            self.data_reg = h5py.File(self.filename_reg,'r')
 
         xs = np.asarray(self.data['xs'][str(index)])
         ys = np.asarray(self.data['ys'][str(index)])
         R = np.asarray(self.data['Rs'][str(index)])
         t = np.asarray(self.data['ts'][str(index)])
+
+        xs_reg = np.asarray(self.data_reg['xs'][str(index)])
+        ys_reg = np.asarray(self.data_reg['ys'][str(index)])
+        R_reg = np.asarray(self.data_reg['Rs'][str(index)])
+        t_reg = np.asarray(self.data_reg['ts'][str(index)])
+
         side = []
         if self.config.use_ratio == 0 and self.config.use_mutual == 0:
             pass
@@ -150,8 +170,8 @@ class CorrespondencesDataset(data.Dataset):
         pts1_virt, pts2_virt = self.correctMatches(e_gt)
 
         pts_virt = np.concatenate([pts1_virt, pts2_virt], axis=1).astype('float64')
-        return {'K1':K1, 'K2':K2, 'R':R, 't':t, \
-        'xs':xs, 'ys':ys, 'T1':T1, 'T2':T2, 'virtPt':pts_virt, 'side':side}
+        return {'K1':K1, 'K2':K2, 'R':R, 't':t, 'R_reg':R_reg, 't_reg':t_reg, \
+        'xs':xs, 'ys':ys, 'xs_reg':xs_reg, 'ys_reg':ys_reg, 'T1':T1, 'T2':T2, 'virtPt':pts_virt, 'side':side}
         
     def reset(self):
         if self.data is not None:
