@@ -49,7 +49,7 @@ def train(model, train_loader, valid_loader, config):
     if config.resume:
         print('==> Resuming from checkpoint..')
         checkpoint = torch.load(checkpoint_path)
-        best_acc = checkpoint['best_acc']
+        best_fscore = checkpoint['best_fscore']
         start_epoch = checkpoint['epoch']
         model.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
@@ -74,7 +74,7 @@ def train(model, train_loader, valid_loader, config):
         # run training
         cur_lr = optimizer.param_groups[0]['lr']
         # loss_vals, loss_GPR_vals = train_step(step, optimizer, model, match_loss, train_data)
-        loss_val, loss_val_reg = train_step(step, optimizer, model, match_loss, train_data)
+        loss_vals, loss_val_reg = train_step(step, optimizer, model, match_loss, train_data)
         # logger_train.append([cur_lr] + loss_vals)
         if step % config.log_intv == 0:
             writer.add_scalar('lr', cur_lr, step)
@@ -89,13 +89,13 @@ def train(model, train_loader, valid_loader, config):
         b_save = ((step + 1) % config.save_intv) == 0
         b_validate = ((step + 1) % config.val_intv) == 0
         if b_validate:
-            va_res, geo_loss, cla_loss, l2_loss, reg_loss, reg_self_loss, reg_quary_loss, prec, reca, fscore  = valid(valid_loader, model, step, config)
+            va_res, geo_loss, cla_loss, l2_loss, reg_self_loss, reg_quary_loss, prec, reca, fscore  = valid(valid_loader, model, step, config)
             # logger_valid.append([va_res, geo_loss, cla_loss, l2_loss])
             writer.add_scalar('lr', cur_lr, step)
             writer.add_scalar('val_ClassifyLoss', cla_loss, step)
             writer.add_scalar('val_Geo_loss', geo_loss, step)
             writer.add_scalar('val_RegressionLoss', l2_loss, step)
-            writer.add_scalar('val_GPR_RegressionLoss', reg_loss, step)
+            # writer.add_scalar('val_GPR_RegressionLoss', reg_loss, step)
             writer.add_scalar('val_GPR_self_RegressionLoss', reg_self_loss, step)
             writer.add_scalar('val_GPR_quary_RegressionLoss', reg_quary_loss, step)
             writer.add_scalar('val_acc', va_res, step)

@@ -91,7 +91,7 @@ def test_process(mode, model, cur_global_step, data_loader, config):
     loader_iter = iter(data_loader)
 
     # save info given by the network
-    network_infor_list = ["geo_losses", "cla_losses", "l2_losses", 'precisions', 'recalls', 'f_scores', 'GPR_reg_loss', 'GPR_self_reg_loss','GPR_quary_reg_loss']
+    network_infor_list = ["geo_losses", "cla_losses", "l2_losses", 'precisions', 'recalls', 'f_scores', 'GPR_self_reg_loss','GPR_quary_reg_loss']
     network_info = {info:[] for info in network_infor_list}
 
     results, pool_arg = [], []
@@ -104,7 +104,7 @@ def test_process(mode, model, cur_global_step, data_loader, config):
             loss, geo_loss, cla_loss, l2_loss, prec, rec = match_loss.run(cur_global_step, test_data, y_hat, e_hat)
             loss_reg, loss_reg_self, loss_reg_quary = match_loss.GPR_reg_loss(cur_global_step, test_data, res_motion_hat)
             loss += loss_reg
-            info = [geo_loss, cla_loss, l2_loss, prec, rec, 2*prec*rec/(prec+rec+1e-15), loss_reg, loss_reg_self, loss_reg_quary]
+            info = [geo_loss, cla_loss, l2_loss, prec, rec, 2*prec*rec/(prec+rec+1e-15), loss_reg_self, loss_reg_quary]
             for info_idx, value in enumerate(info):
                 network_info[network_infor_list[info_idx]].append(value)
 
@@ -146,10 +146,15 @@ def test_process(mode, model, cur_global_step, data_loader, config):
         config.res_path = os.path.join(config.log_path[:-5], mode)
     tag = "ours" if not config.use_ransac else "ours_ransac"
     ret_val = dump_res(measure_list, config.res_path, eval_res, tag)
+    # print(network_info['f_scores'][0:10])
+    # print(network_info['GPR_reg_loss'][0:10])
+    # print(network_info['GPR_self_reg_loss'][0:10])
+    # print(network_info['GPR_quary_reg_loss'][0:10])
+    
     return [ret_val, np.mean(np.asarray(network_info['geo_losses'])), np.mean(np.asarray(network_info['cla_losses'])), \
-        np.mean(np.asarray(network_info['l2_losses'])), np.mean(np.asarray(network_info['GPR_reg_loss'])), np.mean(np.asarray(network_info['GPR_self_reg_loss'])), np.mean(np.asarray(network_info['GPR_quary_reg_loss'])), \
+        np.mean(np.asarray(network_info['l2_losses'])), np.mean(np.asarray(network_info['GPR_self_reg_loss'])), np.mean(np.asarray(network_info['GPR_quary_reg_loss'])), \
         np.mean(np.asarray(network_info['precisions'])), np.mean(np.asarray(network_info['recalls'])), np.mean(np.asarray(network_info['f_scores']))]
-
+ 
 
 def test(data_loader, model, config):
     save_file_best = os.path.join(config.model_path, 'model_best.pth')

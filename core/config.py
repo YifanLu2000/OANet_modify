@@ -112,6 +112,12 @@ loss_arg.add_argument(
     "--loss_classif", type=float, default=1.0, help=""
     "weight of the classification loss")
 loss_arg.add_argument(
+    "--loss_GPR_reg", type=float, default=1.0, help=""
+    "weight of the classification loss")
+loss_arg.add_argument(
+    "--loss_GPR_reg_quary", type=float, default=1.0, help=""
+    "weight of the classification loss")
+loss_arg.add_argument(
     "--loss_essential", type=float, default=0.5, help=""
     "weight of the essential loss")
 loss_arg.add_argument(
@@ -134,10 +140,10 @@ train_arg.add_argument(
     "--train_lr", type=float, default=1e-4, help=""
     "learning rate")
 train_arg.add_argument(
-    "--train_batch_size", type=int, default=32, help=""
+    "--train_batch_size", type=int, default=16, help=""
     "batch size")
 train_arg.add_argument(
-    "--gpu_id", type=str, default='2', help='id(s) for CUDA_VISIBLE_DEVICES')
+    "--gpu_id", type=str, default='3', help='id(s) for CUDA_VISIBLE_DEVICES')
 train_arg.add_argument(
     "--num_processor", type=int, default=8, help='numbers of used cpu')
 train_arg.add_argument(
@@ -150,10 +156,13 @@ train_arg.add_argument(
     "--log_suffix", type=str, default="", help=""
     "suffix of log dir")
 train_arg.add_argument(
-    "--val_intv", type=int, default=5000, help=""
+    "--val_intv", type=int, default=10000, help=""
     "validation interval")
 train_arg.add_argument(
-    "--save_intv", type=int, default=5000, help=""
+    "--save_intv", type=int, default=10000, help=""
+    "summary interval")
+train_arg.add_argument(
+    "--log_intv", type=int, default=100, help=""
     "summary interval")
 
 # -----------------------------------------------------------------------------

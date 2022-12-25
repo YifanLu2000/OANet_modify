@@ -23,6 +23,9 @@ class MatchLoss(object):
         self.obj_geod_th = config.obj_geod_th
         self.geo_loss_margin = config.geo_loss_margin
         self.loss_essential_init_iter = config.loss_essential_init_iter
+        self.loss_essential_end_iter = config.loss_essential_end_iter
+        self.loss_GPR_reg = config.loss_GPR_reg
+        self.loss_GPR_reg_quary = config.loss_GPR_reg_quary
 
     def GPR_reg_loss(self, global_step, data, res_motion_hat):
         y_in, y_reg_in = data['ys'], data['ys_reg']
@@ -109,7 +112,7 @@ class MatchLoss(object):
 
         loss = 0
         # Check global_step and add essential loss
-        if self.loss_essential > 0 and global_step >= self.loss_essential_init_iter:
+        if self.loss_essential > 0 and global_step >= self.loss_essential_init_iter and global_step <= self.loss_essential_end_iter:
             loss += self.loss_essential * essential_loss 
         if self.loss_classif > 0:
             loss += self.loss_classif * classif_loss
