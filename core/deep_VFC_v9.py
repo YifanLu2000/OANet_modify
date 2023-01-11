@@ -202,10 +202,10 @@ class deep_VFC(nn.Module):
             *[ConvMatchLayerBlock(config.net_channels, config.head, config.grid_num) for _ in range(self.layer_num)]
         )
         self.GPR_solver = Exact_GPR_solver(config)
-        self.inlier_pre = InlinerPredictor(config.net_channels)
+        # self.inlier_pre = InlinerPredictor(config.net_channels)
         self.kernel_pos_embed = PositionEncoder(config.net_channels)
         self.Cos_kernel = CosKernel(config)
-        self.error_embed = PositionEncoder(config.net_channels)
+        # self.error_embed = PositionEncoder(config.net_channels)
         self.deep_kernel = AttentionPropagation(config.net_channels, config.head)
     
     def forward(self, data, quary_x):
@@ -229,12 +229,13 @@ class deep_VFC(nn.Module):
         d = self.init_project(motion) + pos_embed # BCN
 
         res_logits, res_e_hat = [], []
-        for i in range(self.layer_num):
-            d, logits, e_hat, grid_d = self.conv_match_layer_blocks[i](data['xs'], d, grid_pos_embed) # BCN
-            res_logits.append(logits), res_e_hat.append(e_hat)
-        # Gaussian Process Regression Optimization
-        # B(C+2)N
-        deep_kernel_embed = torch.cat([pos,self.deep_kernel(self.kernel_pos_embed(pos),grid_d)],axis=1)
+        for k in range(self.iter_num):
+            for i in range(self.layer_num):
+                d, logits, e_hat, grid_d = self.conv_match_layer_blocks[i](data['xs'], d, grid_pos_embed) # BCN
+                res_logits.append(logits), res_e_hat.append(e_hat)
+            # Gaussian Process Regression Optimization
+            # B(C+2)N
+            deep_kernel_embed = torch.cat([pos,self.deep_kernel(self.kernel_pos_embed(pos),grid_d)],axis=1)
         deep_kernel_embed_quary = torch.cat([quary_x,self.deep_kernel(self.kernel_pos_embed(quary_x),grid_d)],axis=1)
         P = torch.sigmoid(logits)
         Knn = self.Cos_kernel(deep_kernel_embed.transpose(1,2),deep_kernel_embed.transpose(1,2))
@@ -243,9 +244,9 @@ class deep_VFC(nn.Module):
         motion_hat = torch.matmul(Knn,C).transpose(1,2)
         motion_quary_hat = torch.matmul(Kqn,C).transpose(1,2)
         res_motion_hat = [motion_hat, motion_quary_hat]
-        logits = torch.squeeze(self.inlier_pre(d+self.error_embed(motion_hat-motion)),1)
-        e_hat = weighted_8points(data['xs'], logits)
-        res_logits.append(logits), res_e_hat.append(e_hat)
+        # logits = torch.squeeze(self.inlier_pre(d+self.error_embed(motion_hat-motion)),1)
+        # e_hat = weighted_8points(data['xs'], logits)
+        # res_logits.append(logits), res_e_hat.append(e_hat)
         
         return res_logits, res_e_hat, res_motion_hat
         

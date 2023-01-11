@@ -12,6 +12,9 @@ from tensorboardX import SummaryWriter
 
 def train_step(step, optimizer, model, match_loss, data):
     model.train()
+    if step == 80000 + 1:
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = param_group['lr']/2.
     # print(data['xs_reg'].shape)
     # exit(0)
     res_logits, res_e_hat, res_motion_hat = model(data,data['xs_reg'][:,:,:,0:2])
@@ -41,7 +44,8 @@ def train(model, train_loader, valid_loader, config):
     model.cuda()
     optimizer = optim.Adam(model.parameters(), lr=config.train_lr, weight_decay = config.weight_decay)
     match_loss = MatchLoss(config)
-    checkpoint_path = os.path.join(config.log_path, 'checkpoint.pth')
+    # checkpoint_path = os.path.join(config.log_path, 'checkpoint.pth')
+    checkpoint_path = os.path.join(config.log_path, 'model_best.pth')
     config.resume = os.path.isfile(checkpoint_path)
     if not os.path.exists(os.path.join(config.log_base,config.log_suffix,'train','log_file')):
         os.mkdir(os.path.join(config.log_base,config.log_suffix,'train','log_file'))
@@ -49,19 +53,14 @@ def train(model, train_loader, valid_loader, config):
     if config.resume:
         print('==> Resuming from checkpoint..')
         checkpoint = torch.load(checkpoint_path)
-        best_fscore = checkpoint['best_fscore']
+        best_acc = checkpoint['best_acc']
+        # best_fscore = checkpoint['best_fscore']
         start_epoch = checkpoint['epoch']
         model.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
-        # logger_train = Logger(os.path.join(config.log_path, 'log_train.txt'), title='oan', resume=True)
-        # logger_valid = Logger(os.path.join(config.log_path, 'log_valid.txt'), title='oan', resume=True)
     else:
-        best_fscore = -1
+        best_acc = -1
         start_epoch = 0
-        # logger_train = Logger(os.path.join(config.log_path, 'log_train.txt'), title='oan')
-        # logger_train.set_names(['Learning Rate'] + ['Geo Loss', 'Classfi Loss', 'L2 Loss', 'Reg Loss']*(config.iter_num+1))
-        # logger_valid = Logger(os.path.join(config.log_path, 'log_valid.txt'), title='oan')
-        # logger_valid.set_names(['Valid Acc'] + ['Geo Loss', 'Clasfi Loss', 'L2 Loss', 'Reg Loss'])
     train_loader_iter = iter(train_loader)
     for step in trange(start_epoch, config.train_iter, ncols=config.tqdm_width):
         try:
@@ -100,13 +99,14 @@ def train(model, train_loader, valid_loader, config):
             writer.add_scalar('val_GPR_quary_RegressionLoss', reg_quary_loss, step)
             writer.add_scalar('val_acc', va_res, step)
             writer.add_scalar('val_fscore', fscore, step)   
-            if fscore > best_fscore:
-                print("Saving best model with va_res = {} and fscore".format(va_res,fscore))
-                best_fscore = fscore
+            if va_res > best_acc:
+                print("Saving best model with va_res = {} and fscore = {}".format(va_res,fscore))
+                best_acc = va_res
                 torch.save({
                 'epoch': step + 1,
                 'state_dict': model.state_dict(),
-                'best_fscore': best_fscore,
+                'best_acc': best_acc,
+                # 'best_fscore': best_fscore,
                 'optimizer' : optimizer.state_dict(),
                 }, os.path.join(config.log_path, 'model_best.pth'))
 
@@ -114,7 +114,8 @@ def train(model, train_loader, valid_loader, config):
             torch.save({
             'epoch': step + 1,
             'state_dict': model.state_dict(),
-            'best_fscore': best_fscore,
+            'best_acc': best_acc,
+            # 'best_fscore': best_fscore,
             'optimizer' : optimizer.state_dict(),
             }, checkpoint_path)
 

@@ -112,10 +112,10 @@ loss_arg.add_argument(
     "--loss_classif", type=float, default=1.0, help=""
     "weight of the classification loss")
 loss_arg.add_argument(
-    "--loss_GPR_reg", type=float, default=1.0, help=""
+    "--loss_GPR_reg", type=float, default=0.0, help=""
     "weight of the classification loss")
 loss_arg.add_argument(
-    "--loss_GPR_reg_quary", type=float, default=1.0, help=""
+    "--loss_GPR_reg_quary", type=float, default=0.2, help=""
     "weight of the classification loss")
 loss_arg.add_argument(
     "--loss_essential", type=float, default=0.5, help=""
@@ -124,7 +124,10 @@ loss_arg.add_argument(
     "--loss_essential_init_iter", type=int, default=20000, help=""
     "initial iterations to run only the classification loss")
 loss_arg.add_argument(
-    "--loss_essential_end_iter", type=int, default=100000, help=""
+    "--loss_GPR_init_iter", type=int, default=100000, help=""
+    "initial iterations to run only the classification loss")
+loss_arg.add_argument(
+    "--loss_essential_end_iter", type=int, default=3000000, help=""
     "ending iterations of essential regression loss")
 loss_arg.add_argument(
     "--geo_loss_margin", type=float, default=0.1, help=""
@@ -140,20 +143,20 @@ train_arg.add_argument(
     "--train_lr", type=float, default=1e-4, help=""
     "learning rate")
 train_arg.add_argument(
-    "--train_batch_size", type=int, default=16, help=""
+    "--train_batch_size", type=int, default=24, help=""
     "batch size")
 train_arg.add_argument(
     "--gpu_id", type=str, default='3', help='id(s) for CUDA_VISIBLE_DEVICES')
 train_arg.add_argument(
     "--num_processor", type=int, default=8, help='numbers of used cpu')
 train_arg.add_argument(
-    "--train_iter", type=int, default=500000, help=""
+    "--train_iter", type=int, default=666666, help=""
     "training iterations to perform")
 train_arg.add_argument(
     "--log_base", type=str, default="./log/", help=""
     "save directory name inside results")
 train_arg.add_argument(
-    "--log_suffix", type=str, default="", help=""
+    "--log_suffix", type=str, default="deepVFC_v8", help=""
     "suffix of log dir")
 train_arg.add_argument(
     "--val_intv", type=int, default=10000, help=""

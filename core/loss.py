@@ -24,6 +24,7 @@ class MatchLoss(object):
         self.geo_loss_margin = config.geo_loss_margin
         self.loss_essential_init_iter = config.loss_essential_init_iter
         self.loss_essential_end_iter = config.loss_essential_end_iter
+        self.loss_GPR_init_iter = config.loss_GPR_init_iter
         self.loss_GPR_reg = config.loss_GPR_reg
         self.loss_GPR_reg_quary = config.loss_GPR_reg_quary
 
@@ -47,12 +48,22 @@ class MatchLoss(object):
 
         loss_reg = 0
         # Check global_step and add loss
-        if self.loss_GPR_reg > 0 :
-            loss_reg += self.loss_GPR_reg * loss_reg_self 
+        if self.loss_GPR_reg > 0:
+            if global_step >= self.loss_GPR_init_iter:
+                loss_reg += self.loss_GPR_reg * loss_reg_self 
+            else:
+                loss_reg += 0.0001 * loss_reg_self 
+        # if self.loss_GPR_reg > 0 and global_step >= self.loss_GPR_init_iter:
+        #     loss_reg += self.loss_GPR_reg * loss_reg_self 
         if self.loss_GPR_reg_quary > 0:
-            loss_reg += self.loss_GPR_reg_quary * loss_reg_quary
+            if global_step >= self.loss_GPR_init_iter:
+                loss_reg += self.loss_GPR_reg_quary * loss_reg_quary 
+            else:
+                loss_reg += 0.0001 * loss_reg_quary
+        # if self.loss_GPR_reg_quary > 0 and global_step >= self.loss_GPR_init_iter:
+        #     loss_reg += self.loss_GPR_reg_quary * loss_reg_quary
 
-        return [loss_reg, (self.loss_GPR_reg * loss_reg_self).item(), (self.loss_GPR_reg_quary * loss_reg_quary).item()]
+        return [loss_reg, (loss_reg_self).item(), (loss_reg_quary).item()]
 
 
     def run(self, global_step, data, logits, e_hat):

@@ -12,7 +12,7 @@ import torch.utils.data
 import sys
 from data import collate_fn, CorrespondencesDataset
 # from oan import OANet as Model
-from deep_VFC_v5 import deep_VFC as Model
+from deep_VFC_v9 import deep_VFC as Model
 from train import train
 from test import test
 
