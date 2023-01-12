@@ -23,10 +23,10 @@ net_arg.add_argument(
     "--net_depth", type=int, default=12, help=""
     "number of layers. Default: 12")
 net_arg.add_argument(
-    "--layer_num", type=int, default=6, help=""
+    "--layer_num", type=int, default=3, help=""
     "number of layers. Default: 12")
 net_arg.add_argument(
-    "--iter_num", type=int, default=1, help=""
+    "--iter_num", type=int, default=2, help=""
     "iteration number in the iterative network. Default: 1")
 net_arg.add_argument(
     "--net_channels", type=int, default=128, help=""
@@ -34,6 +34,9 @@ net_arg.add_argument(
 net_arg.add_argument(
     "--grid_num", type=int, default=16, help=""
     "number of grids in one domention. Default: 16")
+net_arg.add_argument(
+    "--topK", type=int, default=512, help=""
+    "Top k correspondence to perform GPR")
 net_arg.add_argument(
     "--head", type=int, default=4, help=""
     "number of layers. Default: 12")
@@ -146,7 +149,7 @@ train_arg.add_argument(
     "--train_batch_size", type=int, default=24, help=""
     "batch size")
 train_arg.add_argument(
-    "--gpu_id", type=str, default='3', help='id(s) for CUDA_VISIBLE_DEVICES')
+    "--gpu_id", type=str, default='0', help='id(s) for CUDA_VISIBLE_DEVICES')
 train_arg.add_argument(
     "--num_processor", type=int, default=8, help='numbers of used cpu')
 train_arg.add_argument(
@@ -156,7 +159,7 @@ train_arg.add_argument(
     "--log_base", type=str, default="./log/", help=""
     "save directory name inside results")
 train_arg.add_argument(
-    "--log_suffix", type=str, default="deepVFC_v8", help=""
+    "--log_suffix", type=str, default="deepVFC_v9", help=""
     "suffix of log dir")
 train_arg.add_argument(
     "--val_intv", type=int, default=10000, help=""

@@ -187,13 +187,40 @@ class P_pred(nn.Module):
         return P
 
 
+class GPRBlock(nn.Module):
+    def __init__(self,config):
+        super().__init__()
+        self.deep_kernel = AttentionPropagation(config.net_channels, config.head)
+        self.kernel_pos_embed = PositionEncoder(config.net_channels)
+        self.Cos_kernel = CosKernel(config)
+        self.GPR_solver = Exact_GPR_solver(config)
+        self.error_embed = PositionEncoder(config.net_channels)
+        self.topK = config.topK
 
+    def forward(self, d, grid_d, logits, pos, quary_x, motion):
+        # gather information from convmatch and form a high dimension feature
+        deep_kernel_embed = torch.cat([pos,self.deep_kernel(self.kernel_pos_embed(pos),grid_d)],axis=1)
+        deep_kernel_embed_quary = torch.cat([quary_x,self.deep_kernel(self.kernel_pos_embed(quary_x),grid_d)],axis=1)
+        P = torch.sigmoid(logits)
+        sort_P, sort_index = torch.sort(P,descending=True)
+        topK_P, topK_index = sort_P[:,:self.topK], sort_index[:,:self.topK]
+        deep_kernel_embed_topK = torch.gather(deep_kernel_embed,-1,topK_index.unsqueeze(1).repeat(1,deep_kernel_embed.shape[1],1))
+        motion_topK = torch.gather(motion,-1,topK_index.unsqueeze(1).repeat(1,motion.shape[1],1))
+        Kmm = self.Cos_kernel(deep_kernel_embed_topK.transpose(1,2),deep_kernel_embed_topK.transpose(1,2))
+        Knm = self.Cos_kernel(deep_kernel_embed.transpose(1,2),deep_kernel_embed_topK.transpose(1,2))
+        Kqm = self.Cos_kernel(deep_kernel_embed_quary.transpose(1,2),deep_kernel_embed_topK.transpose(1,2))
+        C = self.GPR_solver(Kmm,topK_P,motion_topK.transpose(1,2))
+        motion_hat = torch.matmul(Knm,C).transpose(1,2)
+        motion_quary_hat = torch.matmul(Kqm,C).transpose(1,2)
+        d = d+self.error_embed(motion_hat-motion)
+        return d, motion_hat, motion_quary_hat
 
 
 class deep_VFC(nn.Module):
     def __init__(self, config, use_gpu=True):
         nn.Module.__init__(self)
         self.layer_num = config.layer_num
+        self.iter_num = config.iter_num
         self.grid_center = GridPosition(config.grid_num, use_gpu=use_gpu)
         self.pos_embed = PositionEncoder(config.net_channels)
         self.grid_pos_embed = PositionEncoder(config.net_channels)
@@ -201,12 +228,19 @@ class deep_VFC(nn.Module):
         self.conv_match_layer_blocks = nn.Sequential(
             *[ConvMatchLayerBlock(config.net_channels, config.head, config.grid_num) for _ in range(self.layer_num)]
         )
-        self.GPR_solver = Exact_GPR_solver(config)
-        # self.inlier_pre = InlinerPredictor(config.net_channels)
-        self.kernel_pos_embed = PositionEncoder(config.net_channels)
-        self.Cos_kernel = CosKernel(config)
+        # self.GPR_solver = Exact_GPR_solver(config)
+        self.inlier_pre = InlinerPredictor(config.net_channels)
+        # self.kernel_pos_embed = PositionEncoder(config.net_channels)
+        # self.Cos_kernel = CosKernel(config)
+        # self.error_embed = nn.Sequential(
+        #     *[PositionEncoder(config.net_channels) for _ in range(self.iter_num)]
+        # )
+        self.GPR_block = nn.Sequential(
+            *[GPRBlock(config) for _ in range(config.iter_num)]
+        )
         # self.error_embed = PositionEncoder(config.net_channels)
-        self.deep_kernel = AttentionPropagation(config.net_channels, config.head)
+        # self.deep_kernel = AttentionPropagation(config.net_channels, config.head)
+        # self.topK = config.topK
     
     def forward(self, data, quary_x):
         assert quary_x.dim() == 4 and quary_x.shape[1] == 1
@@ -228,27 +262,109 @@ class deep_VFC(nn.Module):
 
         d = self.init_project(motion) + pos_embed # BCN
 
-        res_logits, res_e_hat = [], []
+        res_logits, res_e_hat, res_motion_hat = [], [], []
         for k in range(self.iter_num):
             for i in range(self.layer_num):
                 d, logits, e_hat, grid_d = self.conv_match_layer_blocks[i](data['xs'], d, grid_pos_embed) # BCN
                 res_logits.append(logits), res_e_hat.append(e_hat)
             # Gaussian Process Regression Optimization
             # B(C+2)N
-            deep_kernel_embed = torch.cat([pos,self.deep_kernel(self.kernel_pos_embed(pos),grid_d)],axis=1)
-        deep_kernel_embed_quary = torch.cat([quary_x,self.deep_kernel(self.kernel_pos_embed(quary_x),grid_d)],axis=1)
-        P = torch.sigmoid(logits)
-        Knn = self.Cos_kernel(deep_kernel_embed.transpose(1,2),deep_kernel_embed.transpose(1,2))
-        Kqn = self.Cos_kernel(deep_kernel_embed_quary.transpose(1,2),deep_kernel_embed.transpose(1,2))
-        C = self.GPR_solver(Knn,P,motion.transpose(1,2))
-        motion_hat = torch.matmul(Knn,C).transpose(1,2)
-        motion_quary_hat = torch.matmul(Kqn,C).transpose(1,2)
-        res_motion_hat = [motion_hat, motion_quary_hat]
-        # logits = torch.squeeze(self.inlier_pre(d+self.error_embed(motion_hat-motion)),1)
-        # e_hat = weighted_8points(data['xs'], logits)
-        # res_logits.append(logits), res_e_hat.append(e_hat)
-        
+            d, motion_hat, motion_quary_hat = self.GPR_block[k](d, grid_d, logits, pos, quary_x, motion)
+            res_motion_hat.append(motion_hat), res_motion_hat.append(motion_quary_hat)
+            
+        logits = torch.squeeze(self.inlier_pre(d),1)
+        e_hat = weighted_8points(data['xs'], logits)
+        res_logits.append(logits), res_e_hat.append(e_hat)
+
         return res_logits, res_e_hat, res_motion_hat
+
+
+
+
+# class deep_VFC(nn.Module):
+#     def __init__(self, config, use_gpu=True):
+#         nn.Module.__init__(self)
+#         self.layer_num = config.layer_num
+#         self.grid_center = GridPosition(config.grid_num, use_gpu=use_gpu)
+#         self.pos_embed = PositionEncoder(config.net_channels)
+#         self.grid_pos_embed = PositionEncoder(config.net_channels)
+#         self.init_project = PositionEncoder(config.net_channels)
+#         self.conv_match_layer_blocks = nn.Sequential(
+#             *[ConvMatchLayerBlock(config.net_channels, config.head, config.grid_num) for _ in range(self.layer_num)]
+#         )
+#         self.GPR_solver = Exact_GPR_solver(config)
+#         self.inlier_pre = InlinerPredictor(config.net_channels)
+#         self.kernel_pos_embed = PositionEncoder(config.net_channels)
+#         self.Cos_kernel = CosKernel(config)
+#         self.error_embed = nn.Sequential(
+#             *[PositionEncoder(config.net_channels) for _ in range(self.iter_num)]
+#         )
+#         self.GPR_block = nn.Sequential(
+#             *[GPRBlock(config) for _ in range(self.iter_num)]
+#         )
+#         # self.error_embed = PositionEncoder(config.net_channels)
+#         self.deep_kernel = AttentionPropagation(config.net_channels, config.head)
+#         self.topK = config.topK
+    
+#     def forward(self, data, quary_x):
+#         assert quary_x.dim() == 4 and quary_x.shape[1] == 1
+#         # quary_x: B1NC -> BCN
+#         quary_x = quary_x.transpose(1,3).squeeze(-1)
+#         assert data['xs'].dim() == 4 and data['xs'].shape[1] == 1
+        
+#         batch_size, num_pts = data['xs'].shape[0], data['xs'].shape[2]
+#         # B1NC -> BCN
+#         input = data['xs'].transpose(1,3).squeeze(3)
+#         x1, x2 = input[:,:2,:], input[:,2:,:]
+#         motion = x2 - x1
+
+#         pos = x1 # B2N
+#         grid_pos = self.grid_center(batch_size) # B2N
+
+#         pos_embed = self.pos_embed(pos) # BCN
+#         grid_pos_embed = self.grid_pos_embed(grid_pos)
+
+#         d = self.init_project(motion) + pos_embed # BCN
+
+#         res_logits, res_e_hat = [], []
+#         res_motion_hat = []
+#         for k in range(self.iter_num):
+#             for i in range(self.layer_num):
+#                 d, logits, e_hat, grid_d = self.conv_match_layer_blocks[i](data['xs'], d, grid_pos_embed) # BCN
+#                 res_logits.append(logits), res_e_hat.append(e_hat)
+#             # Gaussian Process Regression Optimization
+#             # B(C+2)N
+#             deep_kernel_embed = torch.cat([pos,self.deep_kernel(self.kernel_pos_embed(pos),grid_d)],axis=1)
+#             deep_kernel_embed_quary = torch.cat([quary_x,self.deep_kernel(self.kernel_pos_embed(quary_x),grid_d)],axis=1)
+#             P = torch.sigmoid(logits)
+#             sort_P, sort_index = torch.sort(P,descending=True)
+#             topK_P, topK_index = sort_P[:,:self.topK], sort_index[:,:self.topK]
+#             deep_kernel_embed_topK = torch.gather(deep_kernel_embed,-1,topK_index.unsqueeze(1).repeat(1,deep_kernel_embed.shape[1],1))
+#             motion_topK = torch.gather(motion,-1,topK_index.unsqueeze(1).repeat(1,motion.shape[1],1))
+#             Kmm = self.Cos_kernel(deep_kernel_embed_topK.transpose(1,2),deep_kernel_embed_topK.transpose(1,2))
+#             Knm = self.Cos_kernel(deep_kernel_embed.transpose(1,2),deep_kernel_embed_topK.transpose(1,2))
+#             Kqm = self.Cos_kernel(deep_kernel_embed_quary.transpose(1,2),deep_kernel_embed_topK.transpose(1,2))
+#             C = self.GPR_solver(Kmm,topK_P,motion_topK.transpose(1,2))
+#             motion_hat = torch.matmul(Knm,C).transpose(1,2)
+#             motion_quary_hat = torch.matmul(Kqm,C).transpose(1,2)
+#             res_motion_hat.append(motion_hat)
+#             res_motion_hat.append(motion_quary_hat)
+#             d = d+self.error_embed(motion_hat-motion)
+
+#         logits = torch.squeeze(self.inlier_pre(d),1)
+#         e_hat = weighted_8points(data['xs'], logits)
+#         res_logits.append(logits), res_e_hat.append(e_hat)
+#         #     # Knn = self.Cos_kernel(deep_kernel_embed.transpose(1,2),deep_kernel_embed.transpose(1,2))
+#         # Kqn = self.Cos_kernel(deep_kernel_embed_quary.transpose(1,2),deep_kernel_embed.transpose(1,2))
+#         # C = self.GPR_solver(Knn,P,motion.transpose(1,2))
+#         # motion_hat = torch.matmul(Knn,C).transpose(1,2)
+#         # motion_quary_hat = torch.matmul(Kqn,C).transpose(1,2)
+#         # res_motion_hat = [motion_hat, motion_quary_hat]
+#         # logits = torch.squeeze(self.inlier_pre(d+self.error_embed(motion_hat-motion)),1)
+#         # e_hat = weighted_8points(data['xs'], logits)
+#         # res_logits.append(logits), res_e_hat.append(e_hat)
+        
+#         return res_logits, res_e_hat, res_motion_hat
         
 
         

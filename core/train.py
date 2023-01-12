@@ -44,8 +44,8 @@ def train(model, train_loader, valid_loader, config):
     model.cuda()
     optimizer = optim.Adam(model.parameters(), lr=config.train_lr, weight_decay = config.weight_decay)
     match_loss = MatchLoss(config)
-    # checkpoint_path = os.path.join(config.log_path, 'checkpoint.pth')
-    checkpoint_path = os.path.join(config.log_path, 'model_best.pth')
+    checkpoint_path = os.path.join(config.log_path, 'checkpoint.pth')
+    # checkpoint_path = os.path.join(config.log_path, 'model_best.pth')
     config.resume = os.path.isfile(checkpoint_path)
     if not os.path.exists(os.path.join(config.log_base,config.log_suffix,'train','log_file')):
         os.mkdir(os.path.join(config.log_base,config.log_suffix,'train','log_file'))

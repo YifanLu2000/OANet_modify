@@ -37,14 +37,19 @@ class MatchLoss(object):
         is_pos_reg = (gt_geod_d_reg < self.obj_geod_th).type(res_motion_hat[0].type())
         num_pos_reg = torch.relu(torch.sum(is_pos_reg, dim=1) - 1.0) + 1.0
 
-        # self reg loss
         x1, x2 = data['xs'][:,:,:,0:2], data['xs'][:,:,:,2:]
         motion = torch.squeeze(x2 - x1)  
-        loss_reg_self = torch.mean(torch.sum(torch.sum(torch.abs(motion-res_motion_hat[0].transpose(1,2)),-1)*is_pos,-1) / num_pos)
-        # quary reg loss
         x1_reg, x2_reg = data['xs_reg'][:,:,:,0:2], data['xs_reg'][:,:,:,2:]
         motion_reg = torch.squeeze(x2_reg - x1_reg)  
-        loss_reg_quary = torch.mean(torch.sum(torch.sum(torch.abs(motion_reg-res_motion_hat[1].transpose(1,2)),-1)*is_pos_reg,-1) / num_pos_reg)
+
+        iter_num = int(len(res_motion_hat) / 2)
+        # print(iter_num)
+        loss_reg_self, loss_reg_quary = 0, 0
+            # self reg loss
+        for k in range(iter_num):
+            loss_reg_self += torch.mean(torch.sum(torch.sum(torch.abs(motion-res_motion_hat[0+2*k].transpose(1,2)),-1)*is_pos,-1) / num_pos)
+            # quary reg loss
+            loss_reg_quary += torch.mean(torch.sum(torch.sum(torch.abs(motion_reg-res_motion_hat[1+2*k].transpose(1,2)),-1)*is_pos_reg,-1) / num_pos_reg)
 
         loss_reg = 0
         # Check global_step and add loss
